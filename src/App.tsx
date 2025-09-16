@@ -7,19 +7,50 @@ import { Good } from './types/Good';
 export const App: React.FC = () => {
   const [goods, setGoods] = useState<Good[]>([]);
   const [filter, setFilter] = useState<'all' | 'first5' | 'red' | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (filter === 'all') {
-      getAll().then(setGoods);
+    if (!filter) {
+      return;
     }
 
-    if (filter === 'first5') {
-      get5First().then(setGoods);
-    }
+    let isMounted = true;
 
-    if (filter === 'red') {
-      getRedGoods().then(setGoods);
-    }
+    const loadData = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        let result: Good[] = [];
+
+        if (filter === 'all') {
+          result = await getAll();
+        } else if (filter === 'first5') {
+          result = await get5First();
+        } else if (filter === 'red') {
+          result = await getRedGoods();
+        }
+
+        if (isMounted) {
+          setGoods(result);
+        }
+      } catch (e) {
+        if (isMounted) {
+          setError((e as Error).message);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [filter]);
 
   return (
@@ -30,6 +61,7 @@ export const App: React.FC = () => {
         type="button"
         data-cy="all-button"
         onClick={() => setFilter('all')}
+        disabled={isLoading}
       >
         Load all goods
       </button>
@@ -38,6 +70,7 @@ export const App: React.FC = () => {
         type="button"
         data-cy="first-five-button"
         onClick={() => setFilter('first5')}
+        disabled={isLoading}
       >
         Load 5 first goods
       </button>
@@ -46,11 +79,14 @@ export const App: React.FC = () => {
         type="button"
         data-cy="red-button"
         onClick={() => setFilter('red')}
+        disabled={isLoading}
       >
         Load red goods
       </button>
 
-      {filter && <GoodsList goods={goods} />}
+      {isLoading && <p>Loading...</p>}
+      {error && <p style={{ color: 'red' }}>Error: {error}</p>}
+      {!isLoading && !error && filter && <GoodsList goods={goods} />}
     </div>
   );
 };
